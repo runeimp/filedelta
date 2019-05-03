@@ -3,19 +3,18 @@
 //
 package main
 
-//
-// IMPORTS
-//
+/*
+ * IMPORTS
+ */
 import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"log"
+	"io/ioutil"
 	"net/url"
 	"os"
 
-	scribble "github.com/nanobox-io/golang-scribble"
-	// "github.com/wrfly/ecp"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 /*
@@ -24,15 +23,13 @@ import (
 const (
 	AppDesc            AppMetaData = "File change detection tool"
 	AppName            AppMetaData = "FileDelta"
-	AppVersion         AppMetaData = "0.1.0"
+	AppVersion         AppMetaData = "0.2.0"
 	CLIName            AppMetaData = "filedelta"
 	CommandCheck                   = "check"
 	CommandStore                   = "store"
 	ErrorArgumentError             = 10
 	ErrorCacheMissed               = 1
 )
-
-// const AppHelp AppMetaData = ``
 
 /*
  * DERIVED CONSTANTS
@@ -64,41 +61,94 @@ type (
  * VARIABLES
  */
 var (
-	cmd      string
-	debug    = false
-	hashFile string
-	lastArg  string
+	cacheFile string
+	homePath  string
+	cachePath string
+	cmd       string
+	debug     = false
+	hashFile  string
 )
 
 /*
  * FUNCTIONS
  */
+func cacheFilePath(file string) string {
+	return fmt.Sprintf("%s/%s", cachePath, url.QueryEscape(file))
+}
+
+func cacheHashGet(file string) (string, error) {
+	fileHash, err := ioutil.ReadFile(cacheFilePath(file))
+	return string(fileHash), err
+}
+
+func cacheHashPut(file, hash string) error {
+	cacheFile := cacheFilePath(file)
+	return ioutil.WriteFile(cacheFile, []byte(hash), 0644)
+}
+
+func fileHashGet(file string) (string, error) {
+	var (
+		err  error
+		f    *os.File
+		hash string
+	)
+	// fmt.Printf("fileHashGet() | file = %q\n", file)
+	f, err = os.Open(file)
+	if err != nil {
+		// fmt.Printf("fileHashGet() | err = %q\n", err)
+		return hash, err
+	}
+
+	h := sha256.New()
+	_, err = io.Copy(h, f)
+	f.Close()
+
+	hash = fmt.Sprintf("%x", h.Sum(nil))
+	// fmt.Printf("fileHashGet() | hash = %q\n", hash)
+
+	return hash, err
+}
+
 func init() {
-	for _, a := range os.Args[1:] {
-		switch a {
-		case CommandStore, CommandCheck:
-			lastArg = a
-		case "-d", "--debug":
-			debug = true
-		case "-v", "--version":
-			fmt.Println(AppLabel)
-			os.Exit(0)
-		case "-h", "--help":
-			fmt.Println(AppHelp)
-			os.Exit(0)
-		default:
-			switch lastArg {
+	var skip int
+	for i, a := range os.Args {
+		if i > 0 && i != skip {
+			switch a {
 			case CommandStore:
 				cmd = CommandStore
-				hashFile = a
+				skip = i + 1
+				hashFile = os.Args[skip]
 			case CommandCheck:
 				cmd = CommandCheck
-				hashFile = a
+				skip = i + 1
+				hashFile = os.Args[skip]
+			case "-c", "--cache":
+				skip = i + 1
+				cachePath = os.Args[skip]
+			case "-d", "--debug":
+				debug = true
+			case "-v", "--version":
+				fmt.Println(AppLabel)
+				os.Exit(0)
+			case "-h", "--help":
+				fmt.Println(AppHelp)
+				os.Exit(0)
 			default:
-				lastArg = ""
 				hashFile = a
 			}
 		}
+	}
+
+	homePath, _ = homedir.Dir()
+	cachePath = fmt.Sprintf("%s/.local/filedelta/cache", homePath)
+
+	_, err := os.Stat(cachePath)
+	if err != nil {
+		os.MkdirAll(cachePath, 0700)
+	}
+
+	if len(hashFile) > 0 {
+		cacheFile = url.QueryEscape(hashFile)
 	}
 }
 
@@ -106,52 +156,25 @@ func init() {
  * MAIN ENTRYPOINT
  */
 func main() {
-	// log.Printf("%s", AppLabel)
-
 	if len(hashFile) > 0 {
-		cacheFile := url.QueryEscape(hashFile)
-		f, err := os.Open(hashFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		h := sha256.New()
-		if _, err := io.Copy(h, f); err != nil {
-			log.Fatal(err)
-		}
-		f.Close()
-		theHash := h.Sum(nil)
-
-		db, err := scribble.New(".", nil)
-		if err != nil {
-			fmt.Println("Error", err)
-		}
+		hexHash, _ := fileHashGet(hashFile)
 
 		switch cmd {
 		case CommandStore:
-			hexHash := fmt.Sprintf("%x", theHash)
 			if debug {
 				fmt.Printf("cache: %s\n", hashFile)
 				fmt.Printf("cache: %s\n", cacheFile)
 				fmt.Printf("cache: %s\n", hexHash)
 			}
-			fmt.Printf("%x *%s\n", theHash, hashFile)
-			if err := db.Write("cache", cacheFile, hexHash); err != nil {
-				fmt.Println("Error", err)
-			}
+			fmt.Printf("%s *%s\n", hexHash, hashFile)
+			cacheHashPut(hashFile, hexHash)
 		case CommandCheck:
-			hexHash := fmt.Sprintf("%x", theHash)
-
-			var cachedHash string
-			if err := db.Read("cache", cacheFile, &cachedHash); err != nil {
-				fmt.Println("Error", err)
-			}
-
+			cachedHash, _ := cacheHashGet(hashFile)
 			if debug {
-				line := fmt.Sprintf("%x *%s\n", theHash, hashFile)
+				line := fmt.Sprintf("%s *%s\n", hexHash, hashFile)
 				fmt.Printf("check: %s", line)
 				fmt.Printf("cache: Cache File = %s\n", cacheFile)
-				fmt.Printf("check:  File Hash = %x\n", theHash)
+				fmt.Printf("check:  File Hash = %s\n", hexHash)
 				fmt.Printf("check: Cache Hash = %s\n", cachedHash)
 			}
 			if hexHash == string(cachedHash) {
@@ -161,10 +184,9 @@ func main() {
 				os.Exit(ErrorCacheMissed)
 			}
 		default:
-			fmt.Printf("%x *%s\n", theHash, hashFile)
+			fmt.Printf("%s *%s\n", hexHash, hashFile)
 		}
 	} else {
-		// fmt.Fprintln(os.Stderr, "You need to specify a file or option")
 		fmt.Println(AppHelp)
 		os.Exit(ErrorArgumentError)
 	}

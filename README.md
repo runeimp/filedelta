@@ -1,4 +1,4 @@
-FileDelta v0.1.0
+FileDelta v0.2.0
 ================
 
 1. Calculates the SHA-256 hash of a file
@@ -8,19 +8,24 @@ FileDelta v0.1.0
 This is a standalone tool for what many modern build systems already do, which is check the files hash to note if it has changed and needs to be rebuilt. This is to get around the old system which just checked the files modification time. Which isn't as realiable as one would hope.
 
 ```bash
-$ filedelta source.go
-583749f0278312c983b825d9a9025b40e8edad29c0ba368ce322a237d2098497 *source.go
-$ filedelta store source.go
-Hash stored
-$ filedelta check source.go; echo "Exit Code: $?"
-source.go: OK
+$ filedelta test/touched.txt
+b9fa95a472cd1253bd7617700c44eb26b19d32fd32f9dd87a98976adf1c4fdd5 *test/touched.txt
+$ filedelta store test/touched.txt
+b9fa95a472cd1253bd7617700c44eb26b19d32fd32f9dd87a98976adf1c4fdd5 *test/touched.txt
+$ filedelta check test/touched.txt; echo "Exit Code: $?"
+test/touched.txt: OK
 Exit Code: 0
-$ echo "Whaaaaat?" > source.go
-$ filedelta check source.go; echo "Exit Code: $?"
-source.go: ERROR
+$ echo "TOUCHED" > test/touched.txt
+$ filedelta check test/touched.txt; echo "Exit Code: $?"
+test/touched.txt: ERROR
 Exit Code: 1
 ```
 
-Currently uses a local "cache" directory (in the current directory) for storing hash values. This will soon change.
+Hashes are now stored in `$HOME/.local/filedelta/cache/` in plain text files.
 
-This was inspired by a short discussion at https://github.com/casey/just/issues/424
+This was inspired by a short discussion at <https://github.com/casey/just/issues/424>
+
+This tool uses [just][] instead of `make` for handling of task automation and builds. I highly recommend [just][] over `make`. It's awesome!  :smiley:
+
+
+[just]: https://github.com/casey/just
