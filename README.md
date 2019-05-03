@@ -1,5 +1,5 @@
-FileDelta
-=========
+FileDelta v0.1.0
+================
 
 1. Calculates the SHA-256 hash of a file
 2. Can store the hash for later reference
