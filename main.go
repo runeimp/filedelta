@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	homedir "github.com/mitchellh/go-homedir"
 )
@@ -23,7 +24,7 @@ import (
 const (
 	AppDesc            AppMetaData = "File change detection tool"
 	AppName            AppMetaData = "FileDelta"
-	AppVersion         AppMetaData = "0.2.0"
+	AppVersion         AppMetaData = "0.3.0"
 	CLIName            AppMetaData = "filedelta"
 	CommandCheck                   = "check"
 	CommandStore                   = "store"
@@ -73,6 +74,10 @@ var (
  * FUNCTIONS
  */
 func cacheFilePath(file string) string {
+	fileAbs, err := filepath.Abs(file)
+	if err == nil {
+		file = fileAbs
+	}
 	return fmt.Sprintf("%s/%s", cachePath, url.QueryEscape(file))
 }
 
