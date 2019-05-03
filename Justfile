@@ -150,7 +150,7 @@ _build-arm binpath='raspberry-pi' goarm='5' goos='linux' ext='':
 distro:
 	#!/usr/bin/env sh
 	just _term-lw "{{PROJECT_NAME}}"
-	rm -rf ./distro
+	# rm -rf ./distro
 	for binpath in ./bin/*/{{BINARY_NAME}}*; do
 		pathname=`dirname "${binpath}"`
 		VERSION=`just version`
@@ -210,7 +210,7 @@ _list-dir path='.':
 # Run Helper
 @run id='app' +args='':
 	just _term-lw "{{PROJECT_NAME}}"
-	just run-{{id}} {{args}}
+	just --highlight run-{{id}} {{args}}
 
 # Run the app
 @run-app +args='':
@@ -221,13 +221,27 @@ _list-dir path='.':
 # Test Helper
 @test id='app' +args='':
 	just _term-lw "{{PROJECT_NAME}}"
-	just test-{{id}} {{args}}
+	just --highlight test-{{id}} {{args}}
 
 # Test the app
 @test-app +args='':
-	echo "$ {{BINARY_NAME}} {{args}}"
-	# go run {{SOURCE_NAME}} {{args}}
-	go test
+	echo '$ echo Touched > test/touched.txt'
+	echo Touched > test/touched.txt
+	echo '$ go run main.go test/touched.txt'
+	go run main.go test/touched.txt
+	echo '$ go run main.go store test/touched.txt'
+	go run main.go store test/touched.txt
+	echo '$ go run main.go check test/touched.txt'
+	go run main.go check test/touched.txt
+	echo '$ echo TOUCHED > test/touched.txt'
+	echo TOUCHED > test/touched.txt
+	echo '$ go run main.go check test/touched.txt'
+	go run main.go check test/touched.txt; exit 0
+	echo '$ echo Touched > test/touched.txt'
+	echo Touched > test/touched.txt
+	echo '$ go run main.go check test/touched.txt'
+	go run main.go check test/touched.txt
+	# go test
 
 
 # Terminal Helper
