@@ -1,4 +1,4 @@
-FileDelta v0.3.0
+FileDelta v0.4.0
 ================
 
 1. Calculates the SHA-256 hash of a file
@@ -19,6 +19,28 @@ $ echo "TOUCHED" > test/touched.txt
 $ filedelta check test/touched.txt; echo "Exit Code: $?"
 test/touched.txt: ERROR
 Exit Code: 1
+```
+
+Help Example
+------------
+
+```bash
+$ filedelta --help
+FileDelta v0.4.0
+
+File change detection tool
+
+USAGE: filedelta [OPTIONS] COMMAND FILENAME
+
+COMMANDS
+  check   Compares the provided files hash against the one stored
+  store   Stores the provided files hash for later comparison
+
+OPTIONS
+  -d | --debug     Output debugging info
+  -h | --help      Output this help info
+  -v | --version   Output app version info
+
 ```
 
 Hashes are now stored in `$HOME/.local/filedelta/cache/` in plain text files.

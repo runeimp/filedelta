@@ -9,9 +9,8 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
-	"io"
+	"hash"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -24,7 +23,7 @@ import (
 const (
 	AppDesc            AppMetaData = "File change detection tool"
 	AppName            AppMetaData = "FileDelta"
-	AppVersion         AppMetaData = "0.3.0"
+	AppVersion         AppMetaData = "0.4.0"
 	CLIName            AppMetaData = "filedelta"
 	CommandCheck                   = "check"
 	CommandStore                   = "store"
@@ -38,6 +37,8 @@ const (
 var (
 	AppLabel = AppMetaData(fmt.Sprintf("%s v%s", string(AppName), string(AppVersion)))
 	AppHelp  = AppMetaData(fmt.Sprintf("%s\n\n%s", string(AppLabel), string(AppDesc)) + `
+
+USAGE: filedelta [OPTIONS] COMMAND FILENAME
 
 COMMANDS
   check   Compares the provided files hash against the one stored
@@ -62,12 +63,13 @@ type (
  * VARIABLES
  */
 var (
-	cacheFile string
-	homePath  string
-	cachePath string
-	cmd       string
-	debug     = false
-	hashFile  string
+	cacheFile  string
+	cachePath  string
+	cmd        string
+	debug      = false
+	hashFile   string
+	hashSHA256 hash.Hash
+	homePath   string
 )
 
 /*
@@ -78,7 +80,7 @@ func cacheFilePath(file string) string {
 	if err == nil {
 		file = fileAbs
 	}
-	return fmt.Sprintf("%s/%s", cachePath, url.QueryEscape(file))
+	return fmt.Sprintf("%s/%s", cachePath, hashSHA256String(file))
 }
 
 func cacheHashGet(file string) (string, error) {
@@ -93,25 +95,38 @@ func cacheHashPut(file, hash string) error {
 
 func fileHashGet(file string) (string, error) {
 	var (
-		err  error
-		f    *os.File
-		hash string
+		err       error
+		f         *os.File
+		fileBytes []byte
+		hashStr   string
 	)
-	// fmt.Printf("fileHashGet() | file = %q\n", file)
+
 	f, err = os.Open(file)
 	if err != nil {
-		// fmt.Printf("fileHashGet() | err = %q\n", err)
-		return hash, err
+		return hashStr, err
 	}
-
-	h := sha256.New()
-	_, err = io.Copy(h, f)
+	fileBytes, err = ioutil.ReadAll(f)
+	hashStr = hashSHA256ByteString(fileBytes)
 	f.Close()
 
-	hash = fmt.Sprintf("%x", h.Sum(nil))
-	// fmt.Printf("fileHashGet() | hash = %q\n", hash)
+	return hashStr, err
+}
 
-	return hash, err
+func hashSHA256Bytes(bytes []byte) []byte {
+	h := sha256.New()
+	h.Write(bytes)
+	return h.Sum(nil)
+}
+
+func hashSHA256ByteString(bytes []byte) string {
+	hashBytes := hashSHA256Bytes(bytes)
+	return fmt.Sprintf("%x", hashBytes)
+}
+
+func hashSHA256String(value string) string {
+	// fmt.Printf("hashSHA256String() |      nil | hashStr = %q\n", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	hashBytes := hashSHA256Bytes([]byte(value))
+	return fmt.Sprintf("%x", hashBytes)
 }
 
 func init() {
@@ -144,16 +159,13 @@ func init() {
 		}
 	}
 
+	hashSHA256 = sha256.New()
 	homePath, _ = homedir.Dir()
 	cachePath = fmt.Sprintf("%s/.local/filedelta/cache", homePath)
 
 	_, err := os.Stat(cachePath)
 	if err != nil {
 		os.MkdirAll(cachePath, 0700)
-	}
-
-	if len(hashFile) > 0 {
-		cacheFile = url.QueryEscape(hashFile)
 	}
 }
 
@@ -163,7 +175,6 @@ func init() {
 func main() {
 	if len(hashFile) > 0 {
 		hexHash, _ := fileHashGet(hashFile)
-
 		switch cmd {
 		case CommandStore:
 			if debug {
