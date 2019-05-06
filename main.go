@@ -38,6 +38,8 @@ var (
 	AppLabel = AppMetaData(fmt.Sprintf("%s v%s", string(AppName), string(AppVersion)))
 	AppHelp  = AppMetaData(fmt.Sprintf("%s\n\n%s", string(AppLabel), string(AppDesc)) + `
 
+USAGE: filedelta [OPTIONS] COMMAND FILENAME
+
 COMMANDS
   check   Compares the provided files hash against the one stored
   store   Stores the provided files hash for later comparison

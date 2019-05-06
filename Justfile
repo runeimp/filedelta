@@ -207,13 +207,9 @@ _list-dir path='.':
 	fi
 
 
-# Run Helper
-@run id='app' +args='':
-	just _term-lw "{{PROJECT_NAME}}"
-	just --highlight run-{{id}} {{args}}
-
 # Run the app
-@run-app +args='':
+@run +args='':
+	just _term-lw "{{PROJECT_NAME}}"
 	echo "$ {{BINARY_NAME}} {{args}}"
 	go run {{SOURCE_NAME}} {{args}}
 
